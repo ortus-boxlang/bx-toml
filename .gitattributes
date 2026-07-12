@@ -29,3 +29,7 @@
 *.PDF	 diff=astextplain
 *.rtf	 diff=astextplain
 *.RTF	 diff=astextplain
+
+# Vendored toml-test conformance fixtures: preserve exact original bytes (some fixtures
+# specifically test CRLF line-ending handling and must not be LF-normalized on checkout).
+src/test/resources/toml-test/** -text
