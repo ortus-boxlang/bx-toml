@@ -1,4 +1,4 @@
-# ⚡︎ BoxLang Module: @MODULE_NAME@
+# ⚡︎ BoxLang Module: TOML Support
 
 ```
 |:------------------------------------------------------:|
@@ -16,122 +16,135 @@
 
 <p>&nbsp;</p>
 
-This template can be used to create Ortus based BoxLang Modules. To use, just click the `Use this Template` button in the github repository: https://github.com/ortus-boxlang/boxlang-module-template and run the setup task from where you cloned it.
+This module brings full [TOML](https://toml.io) parsing and serialization to BoxLang applications: `tomlDeserialize()`, `tomlDeserializeFile()`, `tomlSerialize()`, and `tomlSerializeFile()`. Parsing is powered by [tomlj](https://github.com/tomlj/tomlj) (a hardened, spec-compliant TOML parser); serialization is hand-written in this module.
+
+## Installation
 
 ```bash
-box task run taskFile=src/build/SetupTemplate
+box install bx-toml
 ```
 
-The `SetupTemplate` task will ask you for your module name, id and description and configure the template for you! Enjoy!
+## Quick Start
 
-## Install Skills
+```js
+data = tomlDeserialize( '
+	title = "bx-toml"
 
-If you are using the Copilot agent workflow with this template, restore the project skills from `skills-lock.json` when you first start working in the project:
+	[owner]
+	name = "Ortus Solutions"
+' );
 
-```bash
-npx skills experimental_install
+writeOutput( data.title ); // bx-toml
+writeOutput( data.owner.name ); // Ortus Solutions
+
+toml = tomlSerialize( data );
 ```
 
-Run the command from the project root so the workspace restores the pinned skills defined for this template.
+## BIF Reference
 
-## Directory Structure
+### `tomlDeserialize( toml, [options] )`
 
-Here is a brief overview of the directory structure:
+Parses a TOML string into a BoxLang struct.
 
-- `.github/workflows` - These are the github actions to test and build the module via CI
-- `build` - This is a temporary non-sourced folder that contains the build assets for the module that gradle produces
-- `gradle` - The gradle wrapper and configuration
-- `src` - Where your module source code lives
-- `.cfformat.json` - A CFFormat using the Ortus Standards
-- `.editorconfig` - Smooth consistency between editors
-- `.gitattributes` - Git attributes
-- `.gitignore` - Basic ignores. Modify as needed.
-- `.markdownlint.json` - A linting file for markdown docs
-- `.ortus-java-style.xml` - Ortus Java Style for IntelliJ, VScode, Eclipse.
-- `box.json` - The box.json for your module used to publish to ForgeBox
-- `build.gradle` - The gradle build file for the module
-- `changelog.md` - A nice changelog tracking file
-- `CONTRIBUTING.md` - A contribution guideline
-- `gradlew` - The gradle wrapper
-- `gradlew.bat` - The gradle wrapper for windows
-- `ModuleConfig.cfc` - Your module's configuration. Modify as needed.
-- `readme.md` - Your module's readme. Modify as needed.
-- `settings.gradle` - The gradle settings file
+| Argument | Type   | Required | Description |
+|----------|--------|----------|--------------|
+| `toml`   | string | yes      | The TOML string to parse. |
+| `options`| struct | no       | Per-call overrides of this module's settings - see [Module Settings](#module-settings). |
 
-Here is a brief overview of the source directory structure:
+### `tomlDeserializeFile( path, [charset], [options] )`
 
-- `build` - Build scripts and assets
-- `main` - The main module source code
-  - `bx` - The BoxLang source code
-  - `ModuleConfig.bx` - The BoxLang module configuration
-    - `bifs` - BoxLang built-in functions
-    - `components` - BoxLang components
-    - `config` - BoxLang configuration, schedulers, etc.
-    - `interceptors` - BoxLang interceptors
-    - `libs` - Java libraries to use that are NOT managed by gradle
-    - `models` - BoxLang models
-  - `java` - Java source code
-  - `resources` - Resources for the module placed in final jar
-- `test`
-  - `bx` - The BoxLang test code
-  - `java` - Java test code
-  - `resources` - Resources for testing
-    - `libs` - BoxLang binary goes here for now.
+Reads and parses a TOML file into a BoxLang struct.
 
-## Project Properties
+| Argument  | Type   | Required | Description |
+|-----------|--------|----------|--------------|
+| `path`    | string | yes      | The path to the TOML file. |
+| `charset` | string | no       | The charset to read the file with. Defaults to the system default charset. |
+| `options` | struct | no       | Per-call overrides of this module's settings. |
 
-The project name is defined in the `settings.gradle` file. You can change it there.
-The project version, BoxLang Version and JDK version is defined in the `build.gradle` file. You can change it there.
+### `tomlSerialize( content, [filepath], [charset], [options] )`
 
-## Gradle Tasks
+Converts a BoxLang struct into a TOML string, or writes it directly to a file if `filepath` is provided.
 
-Before you get started, you need to run the `downloadBoxLang` task in order to download the latest BoxLang binary until we publish to Maven.
+| Argument   | Type   | Required | Description |
+|------------|--------|----------|--------------|
+| `content`  | any    | yes      | The struct to convert to TOML. TOML documents always have a struct at the root. |
+| `filepath` | string | no       | If provided, the TOML is written here instead of being returned. |
+| `charset`  | string | no       | The charset to write the file with. Defaults to the system default charset. |
+| `options`  | struct | no       | Per-call overrides of this module's settings - see [Module Settings](#module-settings). |
 
-```bash
-gradle downloadBoxLang
+### `tomlSerializeFile( content, filepath, [charset], [options] )`
+
+The explicit, filepath-required counterpart to `tomlSerialize()`, for symmetry with `tomlDeserializeFile()`.
+
+| Argument   | Type   | Required | Description |
+|------------|--------|----------|--------------|
+| `content`  | any    | yes      | The struct to convert to TOML. |
+| `filepath` | string | yes      | The path to write the TOML to. |
+| `charset`  | string | no       | The charset to write the file with. Defaults to the system default charset. |
+| `options`  | struct | no       | Per-call overrides of this module's settings. |
+
+## Module Settings
+
+Configure module-wide defaults in your `boxlang.json`:
+
+```json
+{
+	"modules": {
+		"bxtoml": {
+			"settings": {
+				"specVersion": "1.0",
+				"ordered": true,
+				"sortKeys": false,
+				"indent": 2,
+				"dateTimeStyle": "auto"
+			}
+		}
+	}
+}
 ```
 
-This will store the binary under `/src/test/resources/libs` for you to use in your tests and compiler. Here are some basic tasks
+| Setting         | Default  | Description |
+|-----------------|----------|--------------|
+| `specVersion`   | `"1.0"`  | `"1.0"` or `"1.1"` (best-effort - see [TOML Spec Version Support](#toml-spec-version-support)). |
+| `ordered`       | `true`   | Whether `tomlDeserialize()`/`tomlDeserializeFile()` return tables as ordered (linked) structs that preserve TOML key declaration order. |
+| `sortKeys`      | `false`  | Whether `tomlSerialize()`/`tomlSerializeFile()` alphabetize keys instead of preserving the incoming struct's iteration order. |
+| `indent`        | `2`      | Cosmetic indentation width (spaces). TOML has no semantic indentation requirement, so this does not affect parseability. |
+| `dateTimeStyle` | `"auto"` | How a BoxLang DateTime is re-emitted on serialize: `"auto"`, `"offset-datetime"`, `"local-datetime"`, `"local-date"`, or `"local-time"`. See [Known Limitations](#known-limitations). |
 
-| Task                | Description                                                                                                       |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `build`             | The default lifecycle task that triggers the build process, including tasks like `clean`, `assemble`, and others. |
-| `clean`             | Deletes the `build` folders. It helps ensure a clean build by removing any previously generated artifacts.        |
-| `compileJava`       | Compiles Java source code files located in the `src/main/java` directory                                          |
-| `compileTestJava`   | Compiles Java test source code files located in the `src/test/java` directory                                     |
-| `dependencyUpdates` | Checks for updated versions of all dependencies                                                                   |
-| `downloadBoxLang`   | Downloads the latest BoxLang binary for testing                                                                   |
-| `jar`               | Packages your project's compiled classes and resources into a JAR file `build/libs` folder                        |
-| `javadoc`           | Generates the Javadocs for your project and places them in the `build/docs/javadoc` folder                        |
-| `serviceLoader`     | Generates the ServiceLoader file for your project                                                                 |
-| `spotlessApply`     | Runs the Spotless plugin to format the code                                                                       |
-| `spotlessCheck`     | Runs the Spotless plugin to check the formatting of the code                                                      |
-| `tasks`             | Show all the available tasks in the project                                                                       |
-| `test`              | Executes the unit tests in your project and produces the reports in the `build/reports/tests` folder              |
+Any setting can be overridden per-call via the `options` argument on any of the 4 BIFs, e.g. `tomlSerialize( data, options={ sortKeys: true } )`.
 
-## Tests
+## Type Mapping
 
-Please use the `src/test` folder for your unit tests. You can either test using TestBox o JUnit if it's Java.
+| TOML type                              | BoxLang type |
+|-----------------------------------------|--------------|
+| String                                   | `String` |
+| Integer                                  | `Long` (BoxLang's numeric auto-promotion handles the rest - see below) |
+| Float                                    | `Double` |
+| Boolean                                  | `Boolean` |
+| Array                                    | `Array` |
+| Table                                    | `Struct` (ordered/case-sensitive - see below) |
+| Array of tables                          | `Array` of `Struct` |
+| Inline table                             | `Struct` |
+| Offset date-time, local date-time, local date, local time | `DateTime` (see [Known Limitations](#known-limitations)) |
 
-## VSCode Tests
+**Integers:** TOML integers are 64-bit signed (i64). BoxLang numbers auto-promote across `Integer`/`Long`/`BigDecimal`/`BigInteger` as needed, so there's no equivalent of other TOML libraries' "int64 mode" setting to worry about on the read side. On the *write* side, a `BigDecimal`/`BigInteger` that doesn't fit losslessly into TOML's integer or float range raises a `TomlSerializationException` rather than silently losing precision.
 
-If you will be running tests for modules using the VSCode test explorer, then you need to make sure you remove the `/src/main/resources` line item from the configured class path, if not, the BoxLang core will try loading any service loaders it finds in that class path resolution.
+**Keys are case-sensitive:** TOML keys are case-sensitive by spec (`"Key"` and `"key"` are distinct), so tables always deserialize into case-sensitive structs, independent of the `ordered` setting.
 
-> Please note, this IS ONLY FOR MODULE DEVELOPMENT.
+## TOML Spec Version Support
 
-Go to the `Java Projects` panel, click on the 3 dots and click on `Configure Classpath`. Remove the `/src/main/resources` line item and hit `APPLY SETTINGS` on the bottom left.
+- **TOML 1.0.0** is fully supported and is the default (`specVersion: "1.0"`), validated against the [official toml-test conformance suite](https://github.com/toml-lang/toml-test) (the TOML-1.0.0-scoped subset is vendored under `src/test/resources/toml-test` and run on every build).
+- **TOML 1.1.0** (`specVersion: "1.1"`) is *not yet ratified* upstream, and as of tomlj 1.1.1 - the parser this module wraps - its "development spec" mode (`TomlVersion.HEAD`) accepts exactly the same grammar as 1.0.0. In practice, `specVersion: "1.1"` currently behaves identically to `"1.0"`; none of the 1.1-track syntax (optional seconds in datetimes, trailing commas/multi-line inline tables, the `\e`/`\xHH` string escapes) is implemented yet. This is tracked as a fast-follow, contingent on tomlj (or a safe, targeted normalization pass) actually supporting it.
 
-## Github Actions Automation
+## Known Limitations
 
-The github actions will clone, test, package, deploy your module to ForgeBox and the Ortus S3 accounts for API Docs and Artifacts. So please make sure the following environment variables are set in your repository.
+- **No comment preservation.** Parsing and re-serializing a TOML document does not preserve the original comments or formatting - the data model is value-only, matching how `tomlDeserialize()`/`tomlSerialize()` work for JSON.
+- **DateTime round-trip is lossy.** TOML has 4 distinct temporal kinds (offset-datetime, local-datetime, local-date, local-time), but BoxLang has a single `DateTime` type. All 4 collapse into one on parse. On serialize, the `dateTimeStyle: "auto"` heuristic tries to pick a sensible TOML form back out (based on whether the DateTime's offset differs from the system default, and whether its time-of-day is midnight), but this is a best-effort heuristic, not a guarantee - a bare TOML local-date and a midnight UTC offset-datetime are indistinguishable after parsing and will round-trip to the same form. Force a specific form with the `dateTimeStyle` option if you need deterministic output.
+- **Two known upstream tomlj gaps.** tomlj 1.1.1 accepts a UTC offset with a 1-digit minute component (e.g. `+09:9`), which the TOML grammar requires to be 2 digits. This is a parser-level limitation this module cannot work around without hand-rolling its own validation pass, and is excluded (with an explicit, documented reason) from the vendored conformance suite run.
 
-> Please note that most of them are already defined at the org level
+## Conformance
 
-- `FORGEBOX_TOKEN` - The Ortus ForgeBox API Token
-- `AWS_ACCESS_KEY` - The travis user S3 account
-- `AWS_ACCESS_SECRET` - The travis secret S3
-
-> Please contact the admins in the `#infrastructure` channel for these credentials if needed
+This module is tested against the official [toml-test](https://github.com/toml-lang/toml-test) conformance suite (TOML 1.0.0-scoped subset, 210 valid + 497 invalid fixtures, 2 fixtures excluded for the documented tomlj gap above) on every build - see `src/test/java/ortus/boxlang/toml/OfficialConformanceTest.java` and `src/test/resources/toml-test/README.md` for the pinned source commit.
 
 ## Ortus Sponsors
 

@@ -1,24 +1,28 @@
 {
-	"name": "@MODULE_NAME@",
+	"name": "BoxLang TOML Support",
 	"version": "@build.version@+@build.number@",
-	"location": "https://downloads.ortussolutions.com/ortussolutions/boxlang-modules/@MODULE_SLUG@/@build.version@/@MODULE_SLUG@-@build.version@.zip",
+	"location": "https://downloads.ortussolutions.com/ortussolutions/boxlang-modules/bx-toml/@build.version@/bx-toml-@build.version@.zip",
 	"author": "Ortus Solutions",
-	"homepage": "https://github.com/ortus-boxlang/@MODULE_SLUG@",
-	"documentation": "https://github.com/ortus-boxlang/@MODULE_SLUG@",
+	"homepage": "https://github.com/ortus-boxlang/bx-toml",
+	"documentation": "https://github.com/ortus-boxlang/bx-toml",
 	"repository": {
 		"type": "git",
-		"URL": "https://github.com/ortus-boxlang/@MODULE_SLUG@"
+		"URL": "https://github.com/ortus-boxlang/bx-toml"
 	},
 	"bugs": "https://ortussolutions.atlassian.net/browse/BLMODULES",
-	"slug": "@MODULE_SLUG@",
-	"shortDescription": "@MODULE_DESCRIPTION@",
+	"slug": "bx-toml",
+	"shortDescription": "Full TOML 1.0.0 parsing and serialization for BoxLang, with best-effort TOML 1.1 opt-in support",
 	"type": "boxlang-modules",
 	"keywords": [
-		"boxlang"
+		"boxlang",
+		"toml",
+		"parser",
+		"serializer",
+		"config"
 	],
 	"boxlang": {
 		"minimumVersion": "1.0.0",
-		"moduleName": "@MODULE_REGISTERED_NAME@"
+		"moduleName": "bxtoml"
 	},
 	"private": false,
 	"license": [

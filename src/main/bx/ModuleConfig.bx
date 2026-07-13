@@ -35,17 +35,17 @@ class {
 	 * The BoxLang mapping for your module.  All BoxLang modules are registered with an internal
 	 * mapping prefix of : bxModules.{this.mapping}, /bxmodules/{this.mapping}. Ex: bxModules.test, /bxmodules/test
 	 */
-	this.mapping = "@MODULE_REGISTERED_NAME@";
+	this.mapping = "bxtoml";
 
 	/**
 	 * Who built the module
 	 */
-	this.author = "Luis Majano";
+	this.author = "Ortus Solutions";
 
 	/**
 	 * The module description
 	 */
-	this.description = "@MODULE_DESCRIPTION@";
+	this.description = "Full TOML 1.0.0 parsing and serialization for BoxLang, with best-effort TOML 1.1 opt-in support";
 
 	/**
 	 * The module web URL
@@ -73,49 +73,35 @@ class {
 	 */
 	function configure(){
 		/**
-		 * Every module has a settings configuration object
+		 * Every module has a settings configuration object.
+		 * These are the module-wide defaults consulted by the tomlSerialize()/tomlDeserialize()
+		 * family of BIFs; each BIF also accepts a per-call "options" struct that can override
+		 * any of these for that single call.
 		 */
 		settings = {
-			loadedOn : now(),
-			loadedBy : "Luis Majano"
+			// The default TOML spec version to parse/serialize against: "1.0" or "1.1" (best-effort).
+			specVersion   : "1.0",
+			// Whether tomlDeserialize()/tomlDeserializeFile() return tables as ordered (linked) structs
+			// that preserve TOML key declaration order.
+			ordered       : true,
+			// Whether tomlSerialize()/tomlSerializeFile() alphabetize keys instead of preserving
+			// the incoming struct's iteration order.
+			sortKeys      : false,
+			// Cosmetic indentation width (spaces) used when pretty-printing nested output.
+			// TOML has no semantic indentation requirement, so this does not affect parseability.
+			indent        : 2,
+			// How a BoxLang DateTime is re-emitted on serialize: "auto", "offset-datetime",
+			// "local-datetime", "local-date", or "local-time". "auto" heuristically picks a form.
+			dateTimeStyle : "auto"
 		};
 
 		/**
-		 * Every module can have a list of object mappings
-		 * that can be created by boxLang.  This is a great way
-		 * to create objects that can be used by the module
-		 * or other modules.
-		 * The mappings will be created in the following format:
-		 * bxModules.{this.mapping}.{mappingName}
-		 * Ex: bxModules.test.MyObject => bxModules.test.models.MyObject
+		 * No object mappings, datasources, or interceptors are needed for this module.
 		 */
-		objectMappings = {
-			// { name="MyObject", class="models.utilities.MyObject" }
-		}
-
-		/**
-		 * DataSources can be defined by a module and they will be registered
-		 * for you in the runtime
-		 */
-		datasources = {
-			// { name="MyDSN", class="coldbox.system.datasources.ColdBoxDataSource", properties={dsn="mydsn"} }
-		};
-
-		/**
-		 * The module interceptors to register into the runtime
-		 */
-		interceptors = [
-			// { class="path.to.Interceptor", properties={} }
-			{ class : "#moduleRecord.invocationPath#.interceptors.Listener", properties : {
-				createdOn : now(),
-				by : "Luis Majano"
-			} }
-		];
-
-		/**
-		 * A list of custom interception points to register into the runtime
-		 */
-		customInterceptionPoints = [ "onBxTestModule" ];
+		objectMappings = {};
+		datasources = {};
+		interceptors = [];
+		customInterceptionPoints = [];
 	}
 
 	/**
@@ -132,15 +118,4 @@ class {
 
 	}
 
-	/**
-	 * --------------------------------------------------------------------------
-	 * Module Events
-	 * --------------------------------------------------------------------------
-	 * You can listen to any runtime events by creating the methods
-	 * that match the approved runtime interception points
-	 */
-
-	 function afterModuleActivations(){
-		// do something
-	 }
 }
