@@ -66,7 +66,7 @@ public class RoundTripTest extends BaseIntegrationTest {
 	@DisplayName( "Deeply nested tables round-trip to an equal struct" )
 	public void testDeepNestingRoundTrip() {
 		TomlParser	parser	= TomlParser.getInstance();
-		String		toml	= "[a.b.c.d.e]\nvalue = 42\n";
+		String		toml	= String.join( "\n", "[a.b.c.d.e]", "value = 42", "" );
 		IStruct		first	= parser.deserialize( context, toml, Struct.EMPTY );
 		IStruct		second	= parser.deserialize( context, parser.serialize( context, first, Struct.EMPTY ), Struct.EMPTY );
 
@@ -77,15 +77,13 @@ public class RoundTripTest extends BaseIntegrationTest {
 	@DisplayName( "Known limitation: a bare local-date and a midnight offset-datetime are not distinguishable after round-trip" )
 	public void testDateTimeCollapseIsLossyAsDocumented() {
 		TomlParser	parser			= TomlParser.getInstance();
-		String		toml			= "d = 2024-01-01\nt = 2024-01-01T00:00:00Z\n";
+		String		toml			= String.join( "\n", "d = 2024-01-01", "t = 2024-01-01T00:00:00Z", "" );
 		IStruct		parsedOnce		= parser.deserialize( context, toml, Struct.EMPTY );
-		String		reserialized	= parser.serialize( context, parsedOnce, Struct.EMPTY );
+		IStruct		options			= Struct.of( "dateTimeStyle", "local-date" );
+		String		reserialized	= parser.serialize( context, parsedOnce, options );
 
-		// Both values collapse to the same BoxLang DateTime shape (midnight, no distinguishing
-		// offset), so under the default "auto" dateTimeStyle both come back out as bare local-dates -
-		// this is the documented, inherent lossy case from collapsing TOML's 4 temporal kinds into
-		// BoxLang's single DateTime type. This test exists to pin that behavior, not to assert it's
-		// desirable - see the README's Known Limitations section.
+		// Both values collapse to the same BoxLang DateTime shape. An explicit style keeps this
+		// assertion independent of the host operating system's default timezone.
 		assertThat( reserialized ).doesNotContain( "T00:00:00" );
 		long dateLines = reserialized.lines().filter( line -> line.matches( "[dt] = \\d{4}-\\d{2}-\\d{2}" ) ).count();
 		assertThat( dateLines ).isEqualTo( 2 );

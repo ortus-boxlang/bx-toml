@@ -61,8 +61,7 @@ public class OfficialConformanceTest extends BaseIntegrationTest {
 			List<Path> tomlFiles = paths.filter( p -> p.toString().endsWith( ".toml" ) ).sorted().toList();
 			return tomlFiles.stream().map( tomlPath -> dynamicTest( valid.relativize( tomlPath ).toString(), () -> {
 				String		toml		= Files.readString( tomlPath );
-				String		tomlStr		= tomlPath.toString();
-				Path		jsonPath	= Path.of( tomlStr.substring( 0, tomlStr.length() - ".toml".length() ) + ".json" );
+				Path		jsonPath	= tomlPath.resolveSibling( tomlPath.getFileName().toString().replaceFirst( "\\.toml$", ".json" ) );
 				JsonNode	expected	= JSON.readTree( Files.readString( jsonPath ) );
 
 				IStruct		actual		= TomlParser.getInstance().deserialize( context, toml, Struct.EMPTY );
