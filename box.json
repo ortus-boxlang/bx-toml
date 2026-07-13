@@ -21,7 +21,7 @@
 		"config"
 	],
 	"boxlang": {
-		"minimumVersion": "1.0.0",
+		"minimumVersion": "1.14.0",
 		"moduleName": "bxtoml"
 	},
 	"private": false,
@@ -33,7 +33,6 @@
 	],
 	"devDependencies": {
 		"commandbox-boxlang": "*",
-		"commandbox-cfformat": "*",
 		"commandbox-docbox": "*",
 		"testbox": "*"
 	},
@@ -46,8 +45,5 @@
 		"/src/**",
 		"gradle/**"
 	],
-	"scripts": {
-		"setupTemplate": "task run taskFile=src/build/SetupTemplate.cfc",
-		"onRelease": "publish"
-	}
+	"scripts": {}
 }
