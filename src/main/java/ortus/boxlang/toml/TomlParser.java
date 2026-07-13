@@ -62,13 +62,12 @@ public final class TomlParser {
 		if ( !toml.isEmpty() && toml.charAt( 0 ) == '﻿' ) {
 			toml = toml.substring( 1 );
 		}
-		// Normalize CRLF to LF so that TOML parsing produces consistent string values
-		// regardless of the line-ending style that the OS or VCS checkout introduced.
-		// TOML 1.0.0 §1: "Newline means LF (0x0A) or CRLF (0x0D 0x0A)" - both are valid
-		// document line endings, but tomlj preserves CRLF verbatim inside multiline strings
-		// whereas the toml-test conformance fixtures always expect LF.
+		// Normalize line endings so that TOML parsing produces consistent string values regardless
+		// of the line-ending style that the OS or VCS checkout introduced. TOML 1.0.0 §1 permits LF
+		// and CRLF document line endings, but tomlj preserves carriage returns inside multiline
+		// strings whereas the toml-test conformance fixtures always expect LF.
 		if ( toml.indexOf( '\r' ) >= 0 ) {
-			toml = toml.replace( "\r\n", "\n" );
+			toml = toml.replace( "\r\n", "\n" ).replace( '\r', '\n' );
 		}
 		TomlParseResult result;
 		try {
