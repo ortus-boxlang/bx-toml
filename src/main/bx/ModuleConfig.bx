@@ -95,13 +95,6 @@ class {
 			dateTimeStyle : "auto"
 		};
 
-		/**
-		 * No object mappings, datasources, or interceptors are needed for this module.
-		 */
-		objectMappings = {};
-		datasources = {};
-		interceptors = [];
-		customInterceptionPoints = [];
 	}
 
 	/**
