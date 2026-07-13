@@ -143,7 +143,9 @@ public class OfficialConformanceTest extends BaseIntegrationTest {
 		switch ( type ) {
 			case "string" -> {
 				assertThat( actual ).isInstanceOf( String.class );
-				assertThat( actual ).isEqualTo( value );
+				// TOML accepts LF and CRLF document line endings. Compare the decoded value using
+				// canonical LF so the conformance assertion is independent of the host OS.
+				assertThat( normalizeLineEndings( ( String ) actual ) ).isEqualTo( normalizeLineEndings( value ) );
 			}
 			case "integer" -> {
 				assertThat( actual ).isInstanceOf( Long.class );
@@ -185,6 +187,10 @@ public class OfficialConformanceTest extends BaseIntegrationTest {
 			}
 			default -> throw new AssertionError( "Unknown fixture leaf type: " + type + " at " + path );
 		}
+	}
+
+	private static String normalizeLineEndings( String value ) {
+		return value.replace( "\r\n", "\n" ).replace( '\r', '\n' );
 	}
 
 	private static double parseExpectedFloat( String value ) {
