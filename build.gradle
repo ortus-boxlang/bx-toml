@@ -55,7 +55,7 @@ dependencies {
 	testImplementation "org.mockito:mockito-core:5.+"
 	testImplementation "com.google.truth:truth:1.+"
 	// Test-only: reads the toml-test conformance suite's tagged-JSON fixtures. Not bundled into the module jar.
-	testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+	testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.22.1'
 	// Explicitly declare the JUnit platform launcher (to avoid deprecation)
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
