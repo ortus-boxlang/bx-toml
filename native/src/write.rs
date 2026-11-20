@@ -5,6 +5,7 @@ use crate::model::{DateTimeValue, Failure, Kind, Result, Value};
 use crate::zone::offset_seconds;
 use chrono::{DateTime, Datelike, NaiveDate, Timelike};
 
+/// What a call can change about how a document is written.
 #[derive(Debug, Clone)]
 pub struct WriteOptions {
     /// Alphabetize keys, ignoring case, instead of keeping the incoming order.
@@ -16,11 +17,13 @@ pub struct WriteOptions {
 }
 
 impl Default for WriteOptions {
+    /// The module's defaults: keys in the incoming order, two spaces of indentation, dates chosen automatically.
     fn default() -> Self {
         Self { sort_keys: false, indent: 2, date_time_style: "auto".into() }
     }
 }
 
+/// A serialization failure with `message`.
 fn fail(message: impl Into<String>) -> Failure {
     Failure::new(Kind::Serialization, message)
 }
@@ -36,6 +39,7 @@ pub fn write(content: &Value, options: &WriteOptions) -> Result<String> {
     Ok(out.strip_prefix('\n').map(str::to_owned).unwrap_or(out))
 }
 
+/// Writes one table: its plain values first, then its `[tables]`, then its `[[arrays of tables]]`, each nested under `path`.
 fn write_table(entries: &[(String, Value)], path: &mut Vec<String>, out: &mut String, options: &WriteOptions) -> Result<()> {
     let mut entries: Vec<&(String, Value)> = entries.iter().filter(|(_, value)| !matches!(value, Value::Null)).collect();
     if options.sort_keys {
@@ -81,6 +85,7 @@ fn is_table_array(value: &Value) -> bool {
     matches!(value, Value::Array(items) if !items.is_empty() && items.iter().all(|item| matches!(item, Value::Table(_))))
 }
 
+/// The name of a value's kind, for error messages.
 fn type_name(value: &Value) -> &'static str {
     match value {
         Value::Null => "null",
@@ -93,6 +98,7 @@ fn type_name(value: &Value) -> &'static str {
     }
 }
 
+/// A value as one line of TOML: a scalar, an inline array or an inline table.
 fn format_value(value: &Value, options: &WriteOptions) -> Result<String> {
     Ok(match value {
         Value::Null => return Err(fail("TOML has no representation for null values")),
@@ -184,6 +190,7 @@ pub fn escape(text: &str) -> String {
     out
 }
 
+/// A key as bare text when TOML allows it, otherwise quoted and escaped.
 fn format_key(key: &str) -> String {
     if !key.is_empty() && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
         key.to_string()
@@ -192,10 +199,12 @@ fn format_key(key: &str) -> String {
     }
 }
 
+/// A table path as dotted keys, each quoted when it needs to be.
 fn format_path(path: &[String]) -> String {
     path.iter().map(|segment| format_key(segment)).collect::<Vec<_>>().join(".")
 }
 
+/// A date or time as the TOML literal `options.date_time_style` asks for. `auto` picks the form from the offset and the time of day.
 fn format_datetime(value: &DateTimeValue, options: &WriteOptions) -> Result<String> {
     let offset = offset_seconds(&value.zone, value.seconds)?;
     let wall = DateTime::from_timestamp(value.seconds + i64::from(offset), value.nanos)
@@ -248,13 +257,16 @@ fn format_offset(seconds: i32) -> String {
 mod tests {
     use super::*;
 
+    /// Test helper: a table value from `(key, value)` pairs.
     fn table(entries: Vec<(&str, Value)>) -> Value {
         Value::Table(entries.into_iter().map(|(k, v)| (k.to_string(), v)).collect())
     }
+    /// Test helper: a string value.
     fn s(text: &str) -> Value {
         Value::Str(text.into())
     }
 
+    /// Floats print as Java's `Double.toString` does, which is also valid TOML.
     #[test]
     fn floats_print_as_java_does() {
         for (value, expected) in [
@@ -277,6 +289,7 @@ mod tests {
         }
     }
 
+    /// Strings escape the way tomlj does, except that an apostrophe is left alone.
     #[test]
     fn strings_escape_like_tomlj() {
         assert_eq!(escape("a\"b\\c\n\t\r\u{8}\u{c}"), "a\\\"b\\\\c\\n\\t\\r\\b\\f");
@@ -284,6 +297,7 @@ mod tests {
         assert_eq!(escape("it's"), "it's");
     }
 
+    /// Plain values come first, then tables, then arrays of tables, whatever order they arrive in.
     #[test]
     fn scalars_then_tables_then_table_arrays() {
         let doc = table(vec![
@@ -299,6 +313,7 @@ mod tests {
         );
     }
 
+    /// `sortKeys` orders keys ignoring case, and `indent` sets the indentation of nested values.
     #[test]
     fn sort_keys_ignores_case_and_indent_is_configurable() {
         let doc = table(vec![("b", Value::Int(1)), ("A", Value::Int(2)), ("t", table(vec![("z", Value::Int(3)), ("y", Value::Int(4))]))]);
@@ -306,6 +321,7 @@ mod tests {
         assert_eq!(write(&doc, &options).unwrap(), "A = 2\nb = 1\n\n[t]\n    y = 4\n    z = 3\n");
     }
 
+    /// A null is skipped in a table and refused in an array.
     #[test]
     fn nulls_are_skipped_in_tables_but_not_in_arrays() {
         let doc = table(vec![("a", Value::Null), ("b", Value::Int(1))]);
@@ -314,6 +330,7 @@ mod tests {
         assert!(write(&bad, &WriteOptions::default()).unwrap_err().message.contains("null"));
     }
 
+    /// An empty array, or one that is not all tables, is written inline.
     #[test]
     fn mixed_and_empty_arrays_are_inline() {
         let doc = table(vec![
@@ -323,6 +340,7 @@ mod tests {
         assert_eq!(write(&doc, &WriteOptions::default()).unwrap(), "empty = []\nmixed = [ 1, { k = \"v\" }, [ true ] ]\n");
     }
 
+    /// A key is quoted unless it is only letters, digits, `_` and `-`.
     #[test]
     fn keys_are_quoted_when_needed() {
         let doc = table(vec![("plain-key_1", Value::Int(1)), ("has space", Value::Int(2)), ("t.x", table(vec![("é", Value::Int(3))]))]);
@@ -332,6 +350,7 @@ mod tests {
         );
     }
 
+    /// Writing anything but a table at the root is a serialization failure.
     #[test]
     fn the_root_must_be_a_table() {
         let error = write(&Value::Array(vec![]), &WriteOptions::default()).unwrap_err();
@@ -339,6 +358,7 @@ mod tests {
         assert!(error.message.starts_with("TOML documents must have a struct at the root; received array"));
     }
 
+    /// A date-time is written in each `dateTimeStyle`, with its fraction and offset.
     #[test]
     fn dates_in_every_style() {
         // 2024-03-05T06:07:08.5 in +05:30, which is 00:37:08.5Z.
@@ -357,6 +377,7 @@ mod tests {
         assert_eq!(write(&table(vec![("d", utc)]), &options).unwrap(), "d = 1970-01-01T00:00:00Z\n");
     }
 
+    /// `auto` writes an offset date-time when the offset differs from the system zone's.
     #[test]
     fn auto_style_picks_offset_when_it_differs_from_the_system_zone() {
         let far = Value::DateTime(DateTimeValue { seconds: 1_709_599_028, nanos: 0, zone: "+13:45".into() });

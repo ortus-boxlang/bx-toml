@@ -4,6 +4,7 @@ use crate::model::{DateTimeValue, Failure, Kind, Result, Value};
 use crate::zone::{local_to_instant, offset_name};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 
+/// A parse failure with `message`.
 fn fail(message: impl Into<String>) -> Failure {
     Failure::new(Kind::Parse, message)
 }
@@ -38,10 +39,12 @@ fn position(text: &str, offset: usize) -> (usize, usize) {
     (line, column)
 }
 
+/// A TOML table as an ordered table value, keeping its keys in document order.
 fn convert_table(table: toml::Table) -> Result<Value> {
     table.into_iter().map(|(key, value)| Ok((key, convert(value)?))).collect::<Result<Vec<_>>>().map(Value::Table)
 }
 
+/// A value from the `toml` parser as a model value, converting dates and times as it goes.
 fn convert(value: toml::Value) -> Result<Value> {
     Ok(match value {
         toml::Value::String(s) => Value::Str(s),
@@ -79,6 +82,7 @@ fn convert_datetime(value: &toml::value::Datetime) -> Result<DateTimeValue> {
     })
 }
 
+/// The nanosecond part of a wall-clock time.
 fn time_nanos(wall: &NaiveDateTime) -> u32 {
     use chrono::Timelike;
     wall.nanosecond()
@@ -88,6 +92,7 @@ fn time_nanos(wall: &NaiveDateTime) -> u32 {
 mod tests {
     use super::*;
 
+    /// Test helper: the value under `key` in a table, failing the test when it is missing.
     fn get<'a>(value: &'a Value, key: &str) -> &'a Value {
         match value {
             Value::Table(entries) => &entries.iter().find(|(k, _)| k == key).unwrap_or_else(|| panic!("no key {key}")).1,
@@ -95,6 +100,7 @@ mod tests {
         }
     }
 
+    /// Keys keep their document order and spelling, and every kind of value converts.
     #[test]
     fn scalars_tables_and_arrays_keep_order_and_case() {
         let doc = parse("Zed = 1\naLpha = \"x\"\n[Owner]\nname = \"Ada\"\nborn = 1815\nratio = 0.5\nok = true\n[[Servers]]\nn = 1\n[[Servers]]\nn = 2\n").unwrap();
@@ -107,6 +113,7 @@ mod tests {
         assert_eq!(servers.len(), 2);
     }
 
+    /// A leading byte order mark and CRLF line endings do not change what is read.
     #[test]
     fn a_bom_and_crlf_are_normalized() {
         let doc = parse("\u{feff}a = \"x\"\r\nb = \"\"\"l1\r\nl2\"\"\"\r\n").unwrap();
@@ -114,12 +121,14 @@ mod tests {
         assert_eq!(get(&doc, "b"), &Value::Str("l1\nl2".into()));
     }
 
+    /// One byte order mark may start a file; a second one is a parse error.
     #[test]
     fn only_one_leading_byte_order_mark_is_allowed() {
         assert!(parse("\u{feff}a = 1\n").is_ok());
         assert!(parse("\u{feff}\u{feff}a = 1\n").is_err());
     }
 
+    /// An offset date-time keeps its instant and its offset, `Z` reading as `UTC`.
     #[test]
     fn offset_date_times_keep_their_instant_and_offset() {
         let doc = parse("z = 2024-03-05T06:07:08.5Z\no = 2024-03-05T06:07:08+05:30\n").unwrap();
@@ -127,6 +136,7 @@ mod tests {
         assert_eq!(get(&doc, "o"), &Value::DateTime(DateTimeValue { seconds: 1_709_599_028, nanos: 0, zone: "+05:30".into() }));
     }
 
+    /// A local date-time, date or time reads in the system zone, a time on 1970-01-01.
     #[test]
     fn local_values_read_in_the_system_zone() {
         let doc = parse("dt = 2024-03-05T06:07:08\nd = 2024-03-05\nt = 06:07:08\n").unwrap();
@@ -142,6 +152,7 @@ mod tests {
         assert_eq!(wall("t"), "1970-01-01 06:07:08");
     }
 
+    /// A syntax error is a parse failure that names its line, and a duplicate key is refused.
     #[test]
     fn errors_say_where() {
         let error = parse("a = 1\nb = = 2\n").unwrap_err();

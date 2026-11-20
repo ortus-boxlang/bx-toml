@@ -66,6 +66,7 @@ pub fn local_to_instant(wall: NaiveDateTime) -> Result<i64> {
 mod tests {
     use super::*;
 
+    /// `UTC`, `Z`, `+HH:MM` style offsets and IANA names resolve, including a daylight saving change.
     #[test]
     fn fixed_offsets_and_names_resolve() {
         assert_eq!(offset_seconds("UTC", 0).unwrap(), 0);
@@ -78,6 +79,7 @@ mod tests {
         assert_eq!(offset_seconds("America/New_York", 1_721_001_600).unwrap(), -14400);
     }
 
+    /// An unknown zone name or an out-of-range offset is an error.
     #[test]
     fn unknown_zones_fail() {
         assert!(offset_seconds("Mars/Olympus", 0).is_err());
@@ -85,6 +87,7 @@ mod tests {
         assert!(offset_seconds("+1:2", 0).is_err());
     }
 
+    /// An offset in minutes is named `UTC` or `+HH:MM`.
     #[test]
     fn names_for_offsets() {
         assert_eq!(offset_name(0), "UTC");

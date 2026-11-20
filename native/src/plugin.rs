@@ -13,34 +13,49 @@ use std::{ffi::c_void, sync::OnceLock};
 
 /// The capabilities the host granted at initialization.
 struct Apis {
+    /// Type checks and conversions of values.
     types: &'static TypesV1,
+    /// Reading and building arrays.
     collections: &'static CollectionsV1,
+    /// Reading and creating whole numbers.
     integers: &'static IntegersV1,
+    /// Reading and building structs.
     structs: &'static StructsV1,
+    /// Reading and creating date-times.
     datetime: &'static DatetimeV1,
+    /// The module's `boxlang.json` settings.
     settings: &'static SettingsV1,
+    /// `expandPath` resolution.
     paths: &'static PathsV1,
+    /// Typed exceptions.
     errors: &'static ErrorsV1,
 }
 
+/// The capabilities, set once when the host initializes the plugin.
 static APIS: OnceLock<Apis> = OnceLock::new();
 
+/// The granted capabilities, or an error when the plugin was not initialized.
 fn apis() -> Result<&'static Apis, String> {
     APIS.get().ok_or_else(|| "The TOML plugin was not initialized".to_string())
 }
 
+/// The result of a step that can fail with a typed failure.
 type Outcome<T> = std::result::Result<T, Failure>;
 
+/// A failure that is not tied to a file or a document, raised as a serialization error.
 fn plain(error: String) -> Failure {
     Failure::new(Kind::Serialization, error)
 }
 
 /// What a call reads: the options struct, then the module's settings, then the built-in default.
 struct Options {
+    /// Whether a struct read from TOML keeps the order of its keys.
     ordered: bool,
+    /// How a document is written.
     write: WriteOptions,
 }
 
+/// The first non-null value of `key` across `sources`, which are the call options and then the module settings.
 fn option_value(call: &Call<'_>, a: &Apis, sources: &[Value], key: &str) -> Outcome<Option<Value>> {
     for source in sources {
         if let Some(value) = call.struct_get(a.collections, *source, key).map_err(plain)? {
@@ -52,6 +67,7 @@ fn option_value(call: &Call<'_>, a: &Apis, sources: &[Value], key: &str) -> Outc
     Ok(None)
 }
 
+/// A boolean from a boolean, a number (non-zero is true) or text such as true, false, yes or no.
 fn read_bool(call: &Call<'_>, a: &Apis, value: Value, key: &str) -> Outcome<bool> {
     match call.kind(a.types, value).map_err(plain)? {
         VmKind::Bool => call.boolean(a.types, value).map_err(plain),
@@ -65,6 +81,7 @@ fn read_bool(call: &Call<'_>, a: &Apis, value: Value, key: &str) -> Outcome<bool
     }
 }
 
+/// The options for a call: the per-call struct, then the module settings, then the defaults.
 fn options(call: &Call<'_>, a: &Apis, per_call: Value) -> Outcome<Options> {
     let mut sources = Vec::new();
     match call.kind(a.types, per_call).map_err(plain)? {
@@ -139,10 +156,13 @@ fn number(n: f64) -> Outcome<Model> {
     Ok(Model::Float(n))
 }
 
+/// Turns a missing value into a BoxLang null.
 trait OrNull {
+    /// The value, or a null when there is none.
     fn unwrap_or_default_null(self, call: &Call<'_>) -> Outcome<Value>;
 }
 impl OrNull for Option<Value> {
+    /// The value, or a null when there is none.
     fn unwrap_or_default_null(self, call: &Call<'_>) -> Outcome<Value> {
         match self {
             Some(value) => Ok(value),
@@ -192,6 +212,7 @@ fn check_charset(call: &Call<'_>, a: &Apis, value: Value) -> Outcome<()> {
     }
 }
 
+/// The text of argument `index`, or `None` when it is missing or null.
 fn argument_text(call: &Call<'_>, a: &Apis, index: usize) -> Outcome<Option<String>> {
     let value = call.argument(index).map_err(plain)?;
     if call.kind(a.types, value).map_err(plain)? == VmKind::Null {
@@ -200,20 +221,24 @@ fn argument_text(call: &Call<'_>, a: &Apis, index: usize) -> Outcome<Option<Stri
     Ok(Some(call.string(value).map_err(plain)?))
 }
 
+/// Parses TOML text into a BoxLang value.
 fn deserialize(call: &Call<'_>, a: &Apis, text: &str, options: &Options) -> Outcome<Value> {
     let parsed = parse::parse(text)?;
     to_vm(call, a, &parsed, options.ordered)
 }
 
+/// Writes a BoxLang value as TOML text.
 fn serialize(call: &Call<'_>, a: &Apis, content: Value, options: &Options) -> Outcome<String> {
     write::write(&from_vm(call, a, content)?, &options.write)
 }
 
+/// Resolves `path` the way `expandPath` does.
 fn resolve_path(call: &Call<'_>, a: &Apis, path: &str) -> Outcome<String> {
     call.expand_path(a.paths, path).map_err(|e| Failure::new(Kind::Io, e))
 }
 
 // tomlDeserialize( toml, options )
+/// `tomlDeserialize( text, options )`: parses TOML text.
 fn toml_deserialize(call: &Call<'_>, a: &Apis) -> Outcome<Value> {
     let text = call.string(call.argument(0).map_err(plain)?).map_err(plain)?;
     let options = options(call, a, call.argument(1).map_err(plain)?)?;
@@ -221,6 +246,7 @@ fn toml_deserialize(call: &Call<'_>, a: &Apis) -> Outcome<Value> {
 }
 
 // tomlDeserializeFile( path, charset, options )
+/// `tomlDeserializeFile( path, options )`: parses a TOML file.
 fn toml_deserialize_file(call: &Call<'_>, a: &Apis) -> Outcome<Value> {
     let path = call.string(call.argument(0).map_err(plain)?).map_err(plain)?;
     check_charset(call, a, call.argument(1).map_err(plain)?)?;
@@ -232,6 +258,7 @@ fn toml_deserialize_file(call: &Call<'_>, a: &Apis) -> Outcome<Value> {
 }
 
 // tomlSerialize( content, filepath, charset, options ): the text, or null when it was written to filepath
+/// `tomlSerialize( content, options )`: writes a value as TOML text.
 fn toml_serialize(call: &Call<'_>, a: &Apis) -> Outcome<Value> {
     let content = call.argument(0).map_err(plain)?;
     let file = argument_text(call, a, 1)?;
@@ -248,6 +275,7 @@ fn toml_serialize(call: &Call<'_>, a: &Apis) -> Outcome<Value> {
 }
 
 // tomlSerializeFile( content, filepath, charset, options )
+/// `tomlSerializeFile( path, content, options )`: writes a value to a TOML file.
 fn toml_serialize_file(call: &Call<'_>, a: &Apis) -> Outcome<Value> {
     let content = call.argument(0).map_err(plain)?;
     let path = call.string(call.argument(1).map_err(plain)?).map_err(plain)?;
@@ -258,6 +286,7 @@ fn toml_serialize_file(call: &Call<'_>, a: &Apis) -> Outcome<Value> {
     call.null_new().map_err(plain)
 }
 
+/// Writes `text` to `path`, resolved the way `expandPath` does.
 fn write_file(call: &Call<'_>, a: &Apis, path: &str, text: &str) -> Outcome<()> {
     let resolved = resolve_path(call, a, path)?;
     std::fs::write(&resolved, text).map_err(|error| Failure::new(Kind::Io, format!("Error writing TOML file: {path} ({error})")))
@@ -281,6 +310,7 @@ unsafe fn run(
     }
 }
 
+/// Defines the extern "C" entry point for a plugin function, running `$body` under `run`.
 macro_rules! entry {
     ($name:ident, $body:path) => {
         unsafe extern "C" fn $name(

@@ -7,10 +7,12 @@ use chrono::DateTime;
 use serde_json::Value as Json;
 use std::{fs, path::{Path, PathBuf}};
 
+/// The directory holding the vendored toml-test fixtures.
 fn fixtures() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/test/resources/toml-test/tests")
 }
 
+/// Every file with `extension` under `dir`, searching subdirectories, in sorted order.
 fn files(dir: &Path, extension: &str) -> Vec<PathBuf> {
     let mut found = Vec::new();
     let mut stack = vec![dir.to_path_buf()];
@@ -81,6 +83,7 @@ fn matches(expected: &Json, actual: &Value, path: &str) -> Result<(), String> {
     }
 }
 
+/// Every valid document parses to the tagged value in its `.json` file.
 #[test]
 fn valid_documents_parse_to_the_expected_values() {
     let valid = fixtures().join("valid");
@@ -102,6 +105,7 @@ fn valid_documents_parse_to_the_expected_values() {
     assert!(failures.is_empty(), "{} of {} valid documents failed:\n{}", failures.len(), documents.len(), failures.join("\n"));
 }
 
+/// Every invalid document is a parse error.
 #[test]
 fn invalid_documents_are_rejected() {
     let invalid = fixtures().join("invalid");
