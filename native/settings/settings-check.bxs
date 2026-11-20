@@ -1,0 +1,20 @@
+// Run from this folder, whose boxlang.json overrides the bxtoml module settings: sortKeys true, indent 4, ordered false.
+// Checks what MatchBox's native backend reads from the module settings, and that a per-call option wins over them.
+nl = chr( 10 );
+doc = { b: 1, a: { z: 1, y: 2 } };
+
+// Settings apply when the call says nothing
+written = tomlSerialize( doc );
+assert written.find( "[a]" ) > 0 && written.find( "    y = 2" ) > 0;
+assert written.find( "b = 1" ) < written.find( "[a]" );
+
+// A per-call option wins
+indented = tomlSerialize( content = doc, options = { indent: 1 } );
+assert indented.find( " y = 2" ) > 0 && indented.find( "    y = 2" ) == 0;
+// Sorted keys put a before b in a document of plain values
+plain = tomlSerialize( { b: 1, a: 2 } );
+assert plain == 'a = 2' & nl & 'b = 1' & nl;
+unsorted = tomlSerialize( content = { b: 1, a: 2 }, options = { sortKeys: false } );
+assert unsorted.find( "a = 2" ) > 0 && unsorted.find( "b = 1" ) > 0;
+
+println( "bx-toml settings: OK" );

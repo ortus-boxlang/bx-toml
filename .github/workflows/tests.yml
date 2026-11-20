@@ -103,3 +103,90 @@ jobs:
           SLACK_USERNAME: CI
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           MSG_MINIMAL: true
+
+  #############################################
+  # MatchBox native backend: one library per desktop target
+  #############################################
+  native:
+    name: MatchBox native ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    # MatchBox validates plugin execution on Linux only (docs/native-plugins.md). The other targets build and run the
+    # contract here, and stay non-blocking until MatchBox validates them.
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, experimental: false }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, experimental: false }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, experimental: true }
+          - { os: macos-latest, target: aarch64-apple-darwin, experimental: true }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, experimental: true }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc, experimental: true }
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Keep in step with the matchbox-plugin-sdk rev in native/Cargo.toml and in release.yml
+      MATCHBOX_REV: 8b6e1ba1605d18ba3e674f90c21bf12990571675
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Setup Java
+        uses: actions/setup-java@v5.4.0
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache MatchBox CLI
+        id: matchbox-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.matchbox-cli
+          key: matchbox-cli-${{ matrix.target }}-${{ env.MATCHBOX_REV }}
+
+      - name: Install MatchBox CLI
+        if: steps.matchbox-cache.outputs.cache-hit != 'true'
+        run: cargo install --locked --git https://github.com/ortus-boxlang/matchbox --rev ${{ env.MATCHBOX_REV }} --root ~/.matchbox-cli matchbox
+
+      - name: Cargo tests (the parser against the toml-test suite, the writer against the JVM module's output)
+        run: cargo test --manifest-path native/Cargo.toml
+
+      - name: Setup cargo-zigbuild
+        if: contains(matrix.target, 'linux-gnu')
+        run: |
+          pip install ziglang
+          cargo install --locked cargo-zigbuild
+
+      - name: Build the module with the native plugin
+        env:
+          MATCHBOX_GLIBC: ${{ contains(matrix.target, 'linux-gnu') && '2.28' || '' }}
+        run: |
+          ./gradlew downloadBoxLang
+          ./gradlew build -x test --stacktrace --console=plain -PmatchboxTargets=${{ matrix.target }}
+
+      - name: Check the glibc baseline
+        if: contains(matrix.target, 'linux-gnu')
+        run: ./.github/scripts/check-glibc.sh build/module/native/${{ matrix.target }}/libbx_toml_native.so 2.28
+
+      - name: Shared contract on MatchBox
+        run: ~/.matchbox-cli/bin/matchbox --module build/module native/toml-contract.bxs
+
+      - name: Module settings from boxlang.json on MatchBox
+        run: cd native/settings && ~/.matchbox-cli/bin/matchbox --module ../../build/module settings-check.bxs
+
+      - name: Shared contract on MatchBox (native binary)
+        run: |
+          ~/.matchbox-cli/bin/matchbox --target native --module build/module --output "$RUNNER_TEMP/toml-app" native/toml-contract.bxs
+          cd "$RUNNER_TEMP" && ./toml-app
+
+      - name: Shared contract on the JVM
+        run: |
+          BOXLANG_JAR=$(ls src/test/resources/libs/boxlang-*.jar | head -1)
+          java -cp "$BOXLANG_JAR" native/TomlContract.java build/module native/toml-contract.bxs

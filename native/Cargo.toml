@@ -1,0 +1,23 @@
+[package]
+name = "bx-toml-native"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# The SDK is not on crates.io. This is the bxrig commit that has paths, settings, datetime, structs and typed errors
+# (ortus-boxlang/matchbox #186, #187, #188, #190, #191, #192). Keep it in step with MATCHBOX_REV in the workflows.
+matchbox-plugin-sdk = { git = "https://github.com/ortus-boxlang/matchbox", rev = "8b6e1ba1605d18ba3e674f90c21bf12990571675" }
+toml = { version = "0.8", default-features = false, features = ["parse", "preserve_order"] }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+chrono-tz = "0.10"
+
+[profile.release]
+panic = "unwind"
+
+[dev-dependencies]
+serde_json = "1"

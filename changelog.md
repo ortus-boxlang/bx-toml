@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- MatchBox backend: the module now also runs on MatchBox without a JVM. A Rust plugin in `native/` provides `tomlDeserialize()`, `tomlDeserializeFile()`, `tomlSerialize()` and `tomlSerializeFile()` with the same arguments, settings, key order, dates and exceptions, packaged as prebuilt libraries for `x86_64` and `aarch64` on Linux, macOS and Windows under `matchbox.artifacts` in the same zip. One contract script runs on both backends, and the parser passes the vendored toml-test suite.
+
 ## [1.0.0] - 2026-07-13
 
 - Initial release: full TOML 1.0.0 parsing and serialization via `tomlDeserialize()`, `tomlDeserializeFile()`, `tomlSerialize()`, and `tomlSerializeFile()`, backed by tomlj for parsing and a hand-written writer for serialization. Validated against the official toml-test 1.0.0 conformance suite. Best-effort TOML 1.1 opt-in via the `specVersion` setting.
