@@ -69,7 +69,8 @@ assert cased.keyArray().len() == 2 && cased[ "Key" ] == 1 && cased[ "key" ] == 2
 text = tomlDeserialize( lines( [ 'a = "q' & bs & '"b' & bs & bs & 't' & bs & 'tz' & bs & 'u00e9"', "b = 'raw " & bs & "n'", 'c = """', 'l1', 'l2"""' ] ) );
 assert text.a == 'q"b' & bs & 't' & char( 9 ) & 'z' & char( 233 );
 assert text.b == 'raw ' & bs & 'n';
-assert text.c == "l1" & nl & "l2";
+// A line break inside a multi-line string is "l1" & nl & "l2" on MatchBox; the JVM on Windows may give a carriage return too
+assert replace( text.c, char( 13 ), "", "all" ) == "l1" & nl & "l2";
 // A byte order mark and CRLF line endings read the same as plain text
 assert tomlDeserialize( char( 65279 ) & 'a = 1' & char( 13 ) & char( 10 ) & 'b = 2' & char( 13 ) & char( 10 ) ).b == 2;
 
