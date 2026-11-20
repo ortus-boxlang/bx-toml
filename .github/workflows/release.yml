@@ -32,6 +32,8 @@ jobs:
   # MatchBox native backend: one library per desktop target
   #############################################
   native:
+    permissions:
+      contents: read
     name: Native library ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:

@@ -108,6 +108,8 @@ jobs:
   # MatchBox native backend: one library per desktop target
   #############################################
   native:
+    permissions:
+      contents: read
     name: MatchBox native ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     # MatchBox validates plugin execution on Linux only (docs/native-plugins.md). The other targets build and run the
@@ -128,7 +130,7 @@ jobs:
         shell: bash
     env:
       # Keep in step with the matchbox-plugin-sdk rev in native/Cargo.toml and in release.yml
-      MATCHBOX_REV: 8b6e1ba1605d18ba3e674f90c21bf12990571675
+      MATCHBOX_REV: bfbfdf2a5aeda5b22cf9281a82e0a9c02534175a
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7

@@ -122,7 +122,8 @@ directoryCreate( dir );
 try {
 	file = dir & "/out.toml";
 	assert isNull( tomlSerialize( { a: 1 }, file ) );
-	assert fileRead( file ) == 'a = 1' & nl;
+	// The size says the newline was written; fileRead is not asked, because BoxLang 1.15 drops a trailing newline and 1.19 keeps it
+	assert getFileInfo( file ).size == len( 'a = 1' & nl ) && trim( fileRead( file ) ) == 'a = 1';
 	tomlSerializeFile( { b: "two", t: { c: 3 } }, dir & "/two.toml" );
 	read = tomlDeserializeFile( dir & "/two.toml" );
 	assert read.b == "two" && read.t.c == 3;
