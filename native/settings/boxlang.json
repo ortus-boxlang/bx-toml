@@ -1,0 +1,11 @@
+{
+	"modules": {
+		"bxtoml": {
+			"settings": {
+				"sortKeys": true,
+				"indent": 4,
+				"ordered": false
+			}
+		}
+	}
+}

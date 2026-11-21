@@ -1,0 +1,151 @@
+// Shared portable API contract. Run against the same bx-toml package in either runtime:
+// MatchBox (interpreted or a native binary) and the JVM (native/TomlContract.java).
+// It checks what both backends promise: names, arguments, value types, key order and case, the text that is written,
+// and the exceptions that are thrown. Paths are absolute, because a relative one starts in the calling file's folder.
+nl = char( 10 );
+bs = char( 92 );
+function lines( required array parts ) {
+	return arrayToList( parts, nl ) & nl;
+}
+function serialize( required any content, struct options = {} ) {
+	// options is the fourth argument of tomlSerialize, and BoxLang does not mix named with positional arguments
+	return tomlSerialize( content = content, options = options );
+}
+function startsWith( required string text, required string prefix ) {
+	return left( text, len( prefix ) ) == prefix;
+}
+function thrownType( required any action ) {
+	try {
+		action();
+	} catch ( any e ) {
+		return e.type;
+	}
+	return "";
+}
+function thrownMessage( required any action ) {
+	try {
+		action();
+	} catch ( any e ) {
+		return e.message;
+	}
+	return "";
+}
+
+// Parsing: types, nesting, arrays of tables, order and case
+doc = lines( [
+	'title = "TOML Example"',
+	'count = 42',
+	'ratio = 0.5',
+	'enabled = true',
+	'ports = [ 8000, 8001, 8002 ]',
+	'',
+	'[Owner]',
+	'name = "Tom"',
+	'',
+	'[Owner.address]',
+	'city = "Lisbon"',
+	'',
+	'[[servers]]',
+	'host = "alpha"',
+	'',
+	'[[servers]]',
+	'host = "beta"'
+] );
+data = tomlDeserialize( doc );
+assert data.title == "TOML Example";
+assert data.count == 42 && data.ratio == 0.5 && data.enabled == true;
+assert isBoolean( data.enabled ) && isNumeric( data.count );
+assert data.ports.len() == 3 && data.ports[ 1 ] == 8000 && data.ports[ 3 ] == 8002;
+assert data[ "Owner" ].name == "Tom" && data[ "Owner" ].address.city == "Lisbon";
+assert data.servers.len() == 2 && data.servers[ 2 ].host == "beta";
+assert arrayToList( data.keyArray() ) == "title,count,ratio,enabled,ports,Owner,servers";
+assert arrayToList( data[ "Owner" ].keyArray() ) == "name,address";
+
+// Keys are case-sensitive and keep their spelling
+cased = tomlDeserialize( lines( [ 'Key = 1', 'key = 2' ] ) );
+assert cased.keyArray().len() == 2 && cased[ "Key" ] == 1 && cased[ "key" ] == 2;
+
+// Strings: escapes and multi-line text
+text = tomlDeserialize( lines( [ 'a = "q' & bs & '"b' & bs & bs & 't' & bs & 'tz' & bs & 'u00e9"', "b = 'raw " & bs & "n'", 'c = """', 'l1', 'l2"""' ] ) );
+assert text.a == 'q"b' & bs & 't' & char( 9 ) & 'z' & char( 233 );
+assert text.b == 'raw ' & bs & 'n';
+// A line break inside a multi-line string is "l1" & nl & "l2" on MatchBox; the JVM on Windows may give a carriage return too
+assert replace( text.c, char( 13 ), "", "all" ) == "l1" & nl & "l2";
+// A byte order mark and CRLF line endings read the same as plain text
+assert tomlDeserialize( char( 65279 ) & 'a = 1' & char( 13 ) & char( 10 ) & 'b = 2' & char( 13 ) & char( 10 ) ).b == 2;
+
+// Dates and times read as dates
+dates = tomlDeserialize( lines( [ 'odt = 2024-03-05T06:07:08+05:30', 'utc = 1979-05-27T07:32:00Z', 'ld = 2024-03-05' ] ) );
+assert isDate( dates.odt ) && isDate( dates.utc ) && isDate( dates.ld );
+assert year( dates.utc ) == 1979 && month( dates.utc ) == 5 && day( dates.utc ) == 27;
+assert year( dates.ld ) == 2024 && month( dates.ld ) == 3 && day( dates.ld ) == 5;
+
+// Writing: plain values, then tables, then arrays of tables, sorted when asked
+written = serialize( { b: 1, a: "x", t: { z: [ 1, 2 ], y: true }, list: [ { n: 1 }, { n: 2 } ], e: [] }, { sortKeys: true } );
+assert written == lines( [
+	'a = "x"',
+	'b = 1',
+	'e = []',
+	'',
+	'[t]',
+	'  y = true',
+	'  z = [ 1, 2 ]',
+	'',
+	'[[list]]',
+	'  n = 1',
+	'',
+	'[[list]]',
+	'  n = 2'
+] );
+assert serialize( { t: { a: 1 } }, { indent: 4 } ) == '[t]' & nl & '    a = 1' & nl;
+assert serialize( { n: 7, f: 2.5, big: 3000000000 }, { sortKeys: true } ) == lines( [ 'big = 3000000000', 'f = 2.5', 'n = 7' ] );
+assert tomlSerialize( { s: 'q"b' & bs & 't' & char( 9 ) & char( 233 ) } ) == 's = "q' & bs & '"b' & bs & bs & 't' & bs & 't' & bs & 'u00e9"' & nl;
+assert serialize( { "has space": 1, plain_key: 2 }, { sortKeys: true } ) == lines( [ '"has space" = 1', 'plain_key = 2' ] );
+assert tomlSerialize( { a: [ 1, { k: "v" }, [ true ] ] } ) == 'a = [ 1, { k = "v" }, [ true ] ]' & nl;
+
+// Date styles are forced with dateTimeStyle
+odt = tomlDeserialize( 'd = 2024-03-05T06:07:08.5+05:30' ).d;
+assert serialize( { d: odt }, { dateTimeStyle: "offset-datetime" } ) == 'd = 2024-03-05T06:07:08.5+05:30' & nl;
+assert serialize( { d: odt }, { dateTimeStyle: "local-datetime" } ) == 'd = 2024-03-05T06:07:08.5' & nl;
+assert serialize( { d: odt }, { dateTimeStyle: "local-date" } ) == 'd = 2024-03-05' & nl;
+assert serialize( { d: odt }, { dateTimeStyle: "local-time" } ) == 'd = 06:07:08.5' & nl;
+zulu = tomlDeserialize( 'd = 1979-05-27T07:32:00Z' ).d;
+assert serialize( { d: zulu }, { dateTimeStyle: "offset-datetime" } ) == 'd = 1979-05-27T07:32:00Z' & nl;
+
+// A document written and read again is the same document
+roundTrip = tomlDeserialize( tomlSerialize( data ) );
+assert arrayToList( roundTrip.keyArray() ) == arrayToList( data.keyArray() );
+assert roundTrip.servers[ 2 ].host == "beta" && roundTrip.ports[ 2 ] == 8001 && roundTrip[ "Owner" ].address.city == "Lisbon";
+
+// Files: tomlSerialize with a filepath, tomlSerializeFile and tomlDeserializeFile
+dir = getTempDirectory() & "/bx-toml-contract-" & createUUID();
+directoryCreate( dir );
+try {
+	file = dir & "/out.toml";
+	assert isNull( tomlSerialize( { a: 1 }, file ) );
+	// The size says the newline was written; fileRead is not asked, because BoxLang 1.15 drops a trailing newline and 1.19 keeps it
+	assert getFileInfo( file ).size == len( 'a = 1' & nl ) && trim( fileRead( file ) ) == 'a = 1';
+	tomlSerializeFile( { b: "two", t: { c: 3 } }, dir & "/two.toml" );
+	read = tomlDeserializeFile( dir & "/two.toml" );
+	assert read.b == "two" && read.t.c == 3;
+	assert tomlDeserializeFile( path = dir & "/two.toml", options = { ordered: true } ).b == "two";
+	assert startsWith( thrownMessage( () => tomlDeserializeFile( dir & "/missing.toml" ) ), "Error reading TOML file" );
+	assert thrownType( () => tomlDeserializeFile( dir & "/missing.toml" ) ) == "Application";
+} finally {
+	directoryDelete( dir, true );
+}
+
+// Errors carry the module's messages
+assert startsWith( thrownMessage( () => tomlDeserialize( "a = = 1" ) ), "TOML parse error" );
+assert thrownMessage( () => tomlDeserialize( lines( [ 'a = 1', 'a = 2' ] ) ) ) != "";
+assert startsWith( thrownMessage( () => tomlSerialize( [ 1, 2 ] ) ), "TOML documents must have a struct at the root" );
+assert thrownMessage( () => tomlSerialize( { a: [ 1, nullValue() ] } ) ) != "";
+assert startsWith( thrownMessage( () => serialize( { d: now() }, { dateTimeStyle: "bogus" } ) ), "Unknown dateTimeStyle" );
+// Scripts see the exceptions as BoxLang's generic application exception, on both backends
+assert thrownType( () => tomlDeserialize( "a = = 1" ) ) == "Application";
+assert thrownType( () => tomlSerialize( [ 1 ] ) ) == "Application";
+caught = false;
+try { tomlSerialize( [ 1 ] ); } catch ( Application e ) { caught = true; }
+assert caught;
+
+println( "bx-toml native contract: OK" );
