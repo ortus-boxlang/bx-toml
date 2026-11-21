@@ -221,6 +221,30 @@ Any setting can be overridden per-call via the `options` argument on any of the 
 
 This module is tested against the official [toml-test](https://github.com/toml-lang/toml-test) conformance suite (TOML 1.0.0-scoped subset, 210 valid + 497 invalid fixtures, 2 fixtures excluded for the documented tomlj gap above) on every build - see `src/test/java/ortus/boxlang/toml/OfficialConformanceTest.java` and `src/test/resources/toml-test/README.md` for the pinned source commit.
 
+## MatchBox (no JVM)
+
+The same package also runs on [MatchBox](https://github.com/ortus-boxlang/matchbox), the BoxLang VM for native binaries, WebAssembly and small devices. `box.json` lists a prebuilt native library per target under `matchbox.artifacts`, so `matchbox --module bx-toml app.bxs` and `matchbox --target native` work without a JVM, Rust or Cargo. The JVM loader ignores that metadata and uses the jar.
+
+Libraries are published for `x86_64` and `aarch64` on Linux (glibc 2.28 or newer), macOS and Windows. MatchBox itself has validated plugin execution on Linux only, so the macOS and Windows libraries are built and tested in CI but are not yet blocking there.
+
+The four functions, their arguments, the `bxtoml` module settings (including overrides from `boxlang.json`), key order and case, dates, and the `Application` exceptions are the same on both backends; one contract script, `native/toml-contract.bxs`, runs against the JVM and MatchBox. A few things differ:
+
+- **UTF-8 only.** A `charset` other than UTF-8 fails.
+- **Numbers.** MatchBox does not keep a separate integer and decimal type, so a whole number is always written as a TOML integer: `{ n: 1.0 }` writes `n = 1`, and a whole float read from a file writes back as an integer. Integers beyond 2^53 lose precision in MatchBox values.
+- **Parse errors** say where the problem is, in the parser's own words, so the text after `TOML parse error(s):` differs from the JVM's.
+- **Apostrophes** are written as they are. The JVM writer (through tomlj) writes `\'`, which is not valid TOML.
+- **Strictness.** The native parser rejects the whole toml-test invalid suite. tomlj accepts a few documents the suite lists as invalid (see Known Limitations).
+
+Build and test it with a Rust toolchain:
+
+```bash
+cargo test --manifest-path native/Cargo.toml            # the parser against the toml-test suite, the writer against the JVM module's output
+./gradlew downloadBoxLang
+./gradlew build -x test -PmatchboxTargets=x86_64-unknown-linux-gnu   # adds the library to build/module
+matchbox --module build/module native/toml-contract.bxs
+java -cp src/test/resources/libs/boxlang-*.jar native/TomlContract.java build/module native/toml-contract.bxs
+```
+
 ## Ortus Sponsors
 
 BoxLang is a professional open-source project and it is completely funded by the [community](https://patreon.com/ortussolutions) and [Ortus Solutions, Corp](https://www.ortussolutions.com). Ortus Patreons get many benefits like a cfcasts account, a FORGEBOX Pro account and so much more. If you are interested in becoming a sponsor, please visit our patronage page: [https://patreon.com/ortussolutions](https://patreon.com/ortussolutions)

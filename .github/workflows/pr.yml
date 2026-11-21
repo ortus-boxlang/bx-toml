@@ -1,12 +1,7 @@
 name: Pull Requests
 
+# Only pull_request triggers CI. A push trigger on every branch ran the same checks twice for any branch with an open PR.
 on:
-  push:
-    branches-ignore:
-      - "main"
-      - "master"
-      - "development"
-      - "releases/v*"
   pull_request:
     branches:
       - "releases/v*"
@@ -25,12 +20,9 @@ jobs:
   # Format PR
   format_check:
     name: Checks Source Code Formatting
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
-      checks: write
-      pull-requests: write
       contents: read
-      issues: read
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -40,10 +32,6 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 21
-
-      - uses: Ortus-Solutions/commandbox-action@v1.0.3
-        with:
-          cmd: run-script format:check
 
       - name: Verify Code Formatting
         run: ./gradlew spotlessCheck
